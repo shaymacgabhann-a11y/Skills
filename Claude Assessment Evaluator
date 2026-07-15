@@ -1,0 +1,221 @@
+---
+name: scalepad-assessment-evaluator
+description: Evaluate and populate ScalePad Lifecycle Manager client assessments (e.g. Technology Alignment Assessment) using evidence pulled live from ScalePad via MCP/API tools. Use this whenever the user asks to assess a client, answer or fill out assessment questions, score a Lifecycle Manager assessment, add rationale or internal comments to assessment answers, compare a new assessment against a previous one, or audit whether an existing assessment answer is actually backed by evidence. Trigger even if the user just names a client and an assessment template without spelling out every step.
+---
+
+# ScalePad Assessment Evaluator
+
+## Core standard
+
+Only answer an assessment question when there is defensible, current evidence behind the answer. A previous assessment's answer is context for what used to be true — it is never proof that nothing has changed since, so never treat it as evidence on its own.
+
+For every question you answer, leave an internal comment that explains:
+
+- the response you selected
+- the evidence you used to select it
+- any caveats or weak spots in that evidence
+- whether the answer was carried forward from a prior assessment rather than derived fresh
+
+If the data available to you doesn't support an answer, leave the question unanswered and say why in your final report. An honest "not enough evidence" is more useful to the account team than a guess that looks confident.
+
+## Workflow
+
+### 1. Pick the ScalePad environment
+
+Use the ScalePad MCP/API server the user names. If several are configured and the user hasn't said which, use the one that's clearly the established default, or ask before writing anything — this is a write-capable workflow, so guessing wrong here means writing to the wrong tenant.
+
+When a tool takes a raw HTTP request (an `execute-request`-style tool), include the API key explicitly in the request headers:
+
+```json
+{
+  "headers": [
+    { "name": "x-api-key", "value": "<api key>" }
+  ]
+}
+```
+
+For JSON writes, also set:
+
+```json
+{ "name": "Content-Type", "value": "application/json" }
+```
+
+Never print API keys or other secrets in logs or in your final output to the user.
+
+### 2. Resolve the client
+
+Look the client up by name through Core API client search (or the equivalent tool available). Capture:
+
+- client id
+- exact display name
+- lifecycle/customer status
+- primary domain
+- source/integration lineage
+- asset counts, if exposed
+
+Lifecycle Manager and Core don't always share client ids. If a Lifecycle Manager endpoint rejects a client id that worked in Core, that doesn't mean the client is missing from Lifecycle Manager — list the relevant records there and match by name/label instead, then use the id embedded in that result.
+
+### 3. Find the target assessment
+
+List Lifecycle Manager assessments and filter to the client.
+
+- "Newest assessment" means sort by `record_created_at`, unless the user specifically means most recently edited, in which case sort by `updated_at`.
+- When the user names a template (e.g. "Technology Alignment Assessment"), match on the assessment `title` and confirm: assessment id, title, template id, status, `record_created_at`, `evaluated_at`, `updated_at`, `question_count`, `question_answered_count`, current score.
+- If more than one assessment matches, use the newest one as the target and mention any other notable matching assessment you used for comparison.
+
+### 4. Read the target assessment and the prior one
+
+Pull the full target assessment. Also pull the most recent prior assessment for the same client and same template, if one exists — you'll need it for the carry-forward comparison in step 6.
+
+For each question, extract: category, question id, template question id, title, description, scoring instructions, criteria ids and labels, current selected criterion, `is_previously_selected` criterion, and any public/internal comments already on it.
+
+Writes must use the **target assessment's own** `assessment_question_id` and `assessment_criterion_id` values. Never write ids from the old assessment into the new one — they belong to different records even when the question text looks identical.
+
+### 5. Gather current evidence
+
+Before answering anything, pull all the current data that's relevant. Prefer full paginated reads over samples — follow `next_cursor` until you've either read everything or hit the scope the user approved, since a partial read can make "no evidence found" look like "evidence of absence."
+
+Likely sources, depending on what's exposed for this client:
+
+- Core client details
+- Core hardware assets and hardware lifecycle/warranty records
+- SaaS assets
+- service contracts
+- Lifecycle Manager goals, initiatives, and action items
+- meetings and deliverables, where relevant
+- ControlMap health metrics, assessment summary, risks, and action items
+- Backup Radar clients/devices/jobs/backup health
+- service tickets, where exposed and relevant (help desk, ITSM, incidents, monitoring)
+
+Summarize what you find into counts and facts that map onto the assessment questions — e.g. asset counts by type, legacy/end-of-life systems, antivirus and definition status, warranty expired/expiring/missing counts, active contracts and terms, backup coverage and retention, risk levels and severe/high-risk counts, compliance scores and control implementation state, action items by status/priority/initiative, and any roadmap/budget/vCIO/governance artifacts. See the Evidence Mapping Guide below for how specific categories map to specific data sources.
+
+### 6. Decide each answer
+
+Classify the evidence behind each question:
+
+- **Strong** — current ScalePad data directly supports the selected criterion.
+- **Moderate** — current data supports the general maturity level but not every criterion detail.
+- **Weak** — only the prior assessment, indirect evidence, or incomplete API data exists.
+- **Unsupported** — no relevant evidence at all.
+
+Then apply these rules:
+
+- Answer Strong and Moderate questions.
+- Answer Weak questions only when carrying the prior answer forward is genuinely useful, and say so explicitly in the internal comment.
+- Leave Unsupported questions unanswered.
+- Don't raise a maturity score unless current evidence actually supports the higher criterion — a previous high score doesn't grandfather in a higher rating today.
+- Don't preserve an old answer that current evidence contradicts.
+- When evidence is mixed, pick the lower defensible rating and explain the conflict in the comment — understating maturity is a safer error than overstating it, since the client acts on this assessment.
+
+Examples of this judgment in practice:
+
+- An active network monitoring contract plus unresolved WIDS/NIDS action items usually supports `Needs Attention`, not `Satisfactory` — having the tool isn't the same as having resolved what it flagged.
+- Microsoft 365 licensing alone doesn't prove mature cloud governance or cost optimization.
+- A previous `Satisfactory` AI/ML answer is weak if no current AI/ML systems, usage, or measurable benefits are visible — the capability may have lapsed or never been substantiated.
+- Unknown AV telemetry, expired warranties, and legacy OS inventory all count as evidence *against* high endpoint-management maturity, not neutral gaps.
+
+### 7. Write selected criteria
+
+Use the assessment evaluation endpoint/tool to select criteria. Payload shape commonly looks like:
+
+```json
+{
+  "question_evaluations": [
+    {
+      "question_id": "<target assessment question id>",
+      "selected_criteria_id": "<target assessment criterion id>"
+    }
+  ]
+}
+```
+
+Write only the questions you've decided to answer. Don't mark the assessment complete unless the user explicitly asks for that — leaving it open signals to the account team that some questions still need human judgment.
+
+### 8. Add internal comments
+
+Default to internal comments — public comments can be client-visible, so only use those if the user asks for them.
+
+Internal comment endpoint shape commonly looks like:
+
+`PUT /lifecycle-manager/v1/assessments/{assessment_id}/questions/{question_id}/comment/internal`
+
+```json
+{
+  "comment_plain_text": "Selected Needs Attention. Evidence: ... Caveat: ..."
+}
+```
+
+If rich text is required, include `comment_json` as valid ProseMirror JSON, and make sure its plain-text extraction matches `comment_plain_text` exactly.
+
+Recommended comment format:
+
+```text
+Selected <rating>. Evidence: <current facts>. Caveat: <limits/contradictions>. Source: <Core/Lifecycle Manager/ControlMap/Backup Radar/prior assessment>.
+```
+
+For a prior-assessment carry-forward:
+
+```text
+Selected <rating> from prior assessment. Current API review found <available data> but did not expose <missing evidence>; treat as prior-assessment carry-forward.
+```
+
+### 9. Verify after writing
+
+Re-read the assessment and confirm: selected-answer count, score (if applicable), per-category answered counts, unanswered questions, internal comment count on answered questions, and that no answer went in without a matching internal comment.
+
+If any write failed, report exactly which question failed and whether it was the selection write or the comment write that broke — that's the difference between "answer is wrong" and "answer is missing an explanation" for whoever picks this up next.
+
+## Evidence Mapping Guide
+
+Use these as prompts for where to look, not as a rigid checklist — treat them as a starting point for step 5, and adapt to whatever data this client actually has exposed.
+
+**Foundation Services**
+- Help Desk & End-User Support: service tickets, SLAs, support contracts, help desk tooling, self-service portal, CSAT, 24x7 coverage.
+- Device & Endpoint Management: hardware inventory, RMM lineage, patching, MDM, encryption, warranty lifecycle, AV/EDR telemetry, legacy OS.
+- Network Infrastructure: network assets, monitoring contracts, SNMP/topology/link saturation data, network risks/action items.
+- Data Backup & Recovery: Backup Radar data, backup contracts, retention, restore testing, BCDR controls/action items.
+- Security & Compliance: ControlMap health, risks, controls, evidence, compliance frameworks, IAM/EDR/MFA/DLP contracts or initiatives.
+- Cloud Services: cloud/SaaS contracts, backup, governance, cost optimization, shared responsibility, cloud security findings.
+
+**Business Applications**
+- Email & Collaboration: Microsoft 365/Google Workspace contracts, collaboration tools, DLP, retention, security configuration.
+- BI & Analytics: BI tools, reporting automation, dashboards, data quality, analytics initiatives.
+- CRM: CRM assets/contracts/integrations, data quality, sales/marketing workflow evidence.
+- ERP: ERP assets/contracts/integrations, finance/operations process evidence.
+- Industry Applications: line-of-business applications, compliance-specific tools, industry workflow evidence.
+
+**Advanced Technologies**
+- AI/ML: actual AI tools, automation use cases, measurable benefits, governance.
+- IoT: IoT assets/platforms, monitoring, security controls.
+- RPA: automation tools, bot/process inventory, efficiency outcomes.
+- Blockchain: actual blockchain/distributed-ledger implementation.
+
+**Strategic Planning**
+- Technology Strategy & Roadmap: vCIO contracts, QBRs, roadmap artifacts, initiatives, goals, budgets.
+- IT Governance & Risk Management: ControlMap governance, risk summaries, severe/high risks, policy/action-item state.
+- Technology Investment & ROI: budget action items, refresh plans, ROI tracking, portfolio review.
+- Digital Transformation Readiness: active initiatives, change management, blockers, adoption plans.
+
+**Operational Excellence**
+- ITSM: ticket metrics, incidents, SLAs, action tracking, improvement process.
+- Performance Monitoring & Optimization: monitoring contracts, alerting, telemetry, continuous monitoring, unresolved detection gaps.
+- Capacity Planning & Scalability: capacity controls, failover, alternate processing, growth planning.
+- QA & Testing: test processes, tabletop exercises, release QA, automated testing, defect management.
+
+**Innovation & Future Readiness**
+- Innovation Culture & Processes: experiments, governance, innovation pipeline, funding, ownership.
+- Emerging Technology Evaluation: pilots, evaluation process, roadmap entries for new technology.
+- Technology Talent & Skills: training, certifications, role coverage, retention, staffing plans.
+- Future Technology Vision: long-term roadmap, strategic advisory, target architecture, future-state initiatives.
+
+## Final report
+
+When you're done, report back:
+
+- assessment id and title
+- how many questions were answered vs. left unanswered
+- whether internal comments were added and verified for every answered question
+- the major evidence sources you drew on
+- which answers (if any) are weak, prior-only, or worth a human double-check
+
+Don't overstate certainty anywhere in this report — say plainly where the API just didn't expose enough evidence, rather than papering over the gap.
