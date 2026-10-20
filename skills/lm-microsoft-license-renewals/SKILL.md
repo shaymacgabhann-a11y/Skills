@@ -35,7 +35,7 @@ Search for the client by name: clients query tool, operation `search_clients`, `
 A client with a null `license` can't be read by the licensing endpoint (it returns 403), so take that into account when you pick:
 
 - If exactly one result matches the name the user gave (ignoring case) and it has a license, use it.
-- If the exact match has no license but another result does, tell the user and ask which record to use before going on. Licenses are often synced under a different record than the one with the matching name.
+- If the exact match has no license but another result does, tell the user and ask which record to use before going on. Licenses are often synced under a different record than the one with the matching name. To make the choice easy, first run the step 2 query with `"page_size": 1` on each licensed candidate (this only reads data) and include each one's `total_count` of SaaS licenses in your question.
 - If several results are plausible and none is an exact match, list them with their license status and ask the user which one they mean.
 - Use one client record per document. If the user wants licenses from several records in one document, they need to say so.
 
@@ -59,6 +59,8 @@ Keep a license when its product name refers to a Microsoft product: Microsoft, O
 Leave out developer, sandbox and demo subscriptions (for example a product name containing "Developer" or "Sandbox"). They aren't paid renewals the customer needs to plan for. Mention them to the user in step 7, and include them only if the user asks.
 
 If no licenses are left after filtering, don't produce a document. Tell the user what you found and what you left out, and ask whether they want the left-out licenses included.
+
+If the user does include a developer, sandbox or demo subscription, label it in the document as a development or test subscription that isn't a paid renewal. Don't use the trial-conversion or seat-savings wording from the template for it.
 
 If the user asked for all licenses rather than only Microsoft, skip this filter and title the document accordingly.
 
@@ -106,7 +108,7 @@ Before writing the document, note anything the user should know about or decide 
 - licenses with no expiry date or no auto-renew status
 - unassigned seats, which are a cost-saving conversation
 - suspended licenses or seats, or seats in a grace-period warning (`pool.suspended`, `pool.grace_period_warning`)
-- a term longer than three years, or a start date far in the past, which can mean the source system is reporting an agreement date rather than the current billing term; suggest the user confirm in the Microsoft admin center or their distributor portal
+- a term longer than three years (from `term.starts_at` to `term.ends_at`), which can mean the source system is reporting an agreement date rather than the current billing term; suggest the user confirm in the Microsoft admin center or their distributor portal. This flag doesn't change the license's status or how the document describes it.
 
 ### 6. Write the customer document
 
@@ -125,7 +127,7 @@ Rules for the customer-facing version:
 Give the user:
 
 - the document (or a link or file path to it)
-- a short summary: the number of Microsoft licenses, the next expiry date, and how many licenses fall in each renewal window
+- a short summary: the number of licenses in the document, the next expiry date, and how many licenses fall in each renewal window. Mention separately any licenses you left out and why.
 - the flags from step 5
 - anything you couldn't read or weren't sure about, such as missing pages, unclear products or a 403 on a related client
 
