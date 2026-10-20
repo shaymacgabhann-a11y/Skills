@@ -1,0 +1,21 @@
+{
+  "name": "scalepad-skills",
+  "owner": {
+    "name": "Shay MacGabhann"
+  },
+  "metadata": {
+    "description": "Shareable AI skills for automating ScalePad Lifecycle Manager tasks and workflows",
+    "version": "0.1.0"
+  },
+  "plugins": [
+    {
+      "name": "lifecycle-manager-skills",
+      "description": "Skills that automate Lifecycle Manager workflows through the ScalePad MCP server",
+      "source": "./",
+      "strict": false,
+      "skills": [
+        "./skills/scalepad-assessment-evaluator"
+      ]
+    }
+  ]
+}

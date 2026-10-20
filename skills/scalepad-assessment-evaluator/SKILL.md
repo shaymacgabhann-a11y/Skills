@@ -7,7 +7,7 @@ description: Evaluate and populate ScalePad Lifecycle Manager client assessments
 
 ## Core standard
 
-Only answer an assessment question when there is defensible, current evidence behind the answer. A previous assessment's answer is context for what used to be true — it is never proof that nothing has changed since, so never treat it as evidence on its own.
+Only answer an assessment question when there is defensible, current evidence behind the answer. A previous assessment's answer is context for what used to be true: it is never proof that nothing has changed since, so never treat it as evidence on its own.
 
 For every question you answer, leave an internal comment that explains:
 
@@ -22,7 +22,7 @@ If the data available to you doesn't support an answer, leave the question unans
 
 ### 1. Pick the ScalePad environment
 
-Use the ScalePad MCP/API server the user names. If several are configured and the user hasn't said which, use the one that's clearly the established default, or ask before writing anything — this is a write-capable workflow, so guessing wrong here means writing to the wrong tenant.
+Use the ScalePad MCP/API server the user names. If several are configured and the user hasn't said which, use the one that's clearly the established default, or ask before writing anything: this is a write-capable workflow, so guessing wrong here means writing to the wrong tenant.
 
 When a tool takes a raw HTTP request (an `execute-request`-style tool), include the API key explicitly in the request headers:
 
@@ -53,7 +53,7 @@ Look the client up by name through Core API client search (or the equivalent too
 - source/integration lineage
 - asset counts, if exposed
 
-Lifecycle Manager and Core don't always share client ids. If a Lifecycle Manager endpoint rejects a client id that worked in Core, that doesn't mean the client is missing from Lifecycle Manager — list the relevant records there and match by name/label instead, then use the id embedded in that result.
+Lifecycle Manager and Core don't always share client ids. If a Lifecycle Manager endpoint rejects a client id that worked in Core, that doesn't mean the client is missing from Lifecycle Manager: list the relevant records there and match by name/label instead, then use the id embedded in that result.
 
 ### 3. Find the target assessment
 
@@ -65,15 +65,15 @@ List Lifecycle Manager assessments and filter to the client.
 
 ### 4. Read the target assessment and the prior one
 
-Pull the full target assessment. Also pull the most recent prior assessment for the same client and same template, if one exists — you'll need it for the carry-forward comparison in step 6.
+Pull the full target assessment. Also pull the most recent prior assessment for the same client and same template, if one exists: you'll need it for the carry-forward comparison in step 6.
 
 For each question, extract: category, question id, template question id, title, description, scoring instructions, criteria ids and labels, current selected criterion, `is_previously_selected` criterion, and any public/internal comments already on it.
 
-Writes must use the **target assessment's own** `assessment_question_id` and `assessment_criterion_id` values. Never write ids from the old assessment into the new one — they belong to different records even when the question text looks identical.
+Writes must use the **target assessment's own** `assessment_question_id` and `assessment_criterion_id` values. Never write ids from the old assessment into the new one: they belong to different records even when the question text looks identical.
 
 ### 5. Gather current evidence
 
-Before answering anything, pull all the current data that's relevant. Prefer full paginated reads over samples — follow `next_cursor` until you've either read everything or hit the scope the user approved, since a partial read can make "no evidence found" look like "evidence of absence."
+Before answering anything, pull all the current data that's relevant. Prefer full paginated reads over samples: follow `next_cursor` until you've either read everything or hit the scope the user approved, since a partial read can make "no evidence found" look like "evidence of absence."
 
 Likely sources, depending on what's exposed for this client:
 
@@ -87,31 +87,31 @@ Likely sources, depending on what's exposed for this client:
 - Backup Radar clients/devices/jobs/backup health
 - service tickets, where exposed and relevant (help desk, ITSM, incidents, monitoring)
 
-Summarize what you find into counts and facts that map onto the assessment questions — e.g. asset counts by type, legacy/end-of-life systems, antivirus and definition status, warranty expired/expiring/missing counts, active contracts and terms, backup coverage and retention, risk levels and severe/high-risk counts, compliance scores and control implementation state, action items by status/priority/initiative, and any roadmap/budget/vCIO/governance artifacts. See the Evidence Mapping Guide below for how specific categories map to specific data sources.
+Summarize what you find into counts and facts that map onto the assessment questions, for example asset counts by type, legacy/end-of-life systems, antivirus and definition status, warranty expired/expiring/missing counts, active contracts and terms, backup coverage and retention, risk levels and severe/high-risk counts, compliance scores and control implementation state, action items by status/priority/initiative, and any roadmap/budget/vCIO/governance artifacts. See the Evidence Mapping Guide below for how specific categories map to specific data sources.
 
 ### 6. Decide each answer
 
 Classify the evidence behind each question:
 
-- **Strong** — current ScalePad data directly supports the selected criterion.
-- **Moderate** — current data supports the general maturity level but not every criterion detail.
-- **Weak** — only the prior assessment, indirect evidence, or incomplete API data exists.
-- **Unsupported** — no relevant evidence at all.
+- **Strong**: current ScalePad data directly supports the selected criterion.
+- **Moderate**: current data supports the general maturity level but not every criterion detail.
+- **Weak**: only the prior assessment, indirect evidence, or incomplete API data exists.
+- **Unsupported**: no relevant evidence at all.
 
 Then apply these rules:
 
 - Answer Strong and Moderate questions.
 - Answer Weak questions only when carrying the prior answer forward is genuinely useful, and say so explicitly in the internal comment.
 - Leave Unsupported questions unanswered.
-- Don't raise a maturity score unless current evidence actually supports the higher criterion — a previous high score doesn't grandfather in a higher rating today.
+- Don't raise a maturity score unless current evidence actually supports the higher criterion: a previous high score doesn't grandfather in a higher rating today.
 - Don't preserve an old answer that current evidence contradicts.
-- When evidence is mixed, pick the lower defensible rating and explain the conflict in the comment — understating maturity is a safer error than overstating it, since the client acts on this assessment.
+- When evidence is mixed, pick the lower defensible rating and explain the conflict in the comment: understating maturity is a safer error than overstating it, since the client acts on this assessment.
 
 Examples of this judgment in practice:
 
-- An active network monitoring contract plus unresolved WIDS/NIDS action items usually supports `Needs Attention`, not `Satisfactory` — having the tool isn't the same as having resolved what it flagged.
+- An active network monitoring contract plus unresolved WIDS/NIDS action items usually supports `Needs Attention`, not `Satisfactory`: having the tool isn't the same as having resolved what it flagged.
 - Microsoft 365 licensing alone doesn't prove mature cloud governance or cost optimization.
-- A previous `Satisfactory` AI/ML answer is weak if no current AI/ML systems, usage, or measurable benefits are visible — the capability may have lapsed or never been substantiated.
+- A previous `Satisfactory` AI/ML answer is weak if no current AI/ML systems, usage, or measurable benefits are visible: the capability may have lapsed or never been substantiated.
 - Unknown AV telemetry, expired warranties, and legacy OS inventory all count as evidence *against* high endpoint-management maturity, not neutral gaps.
 
 ### 7. Write selected criteria
@@ -129,11 +129,11 @@ Use the assessment evaluation endpoint/tool to select criteria. Payload shape co
 }
 ```
 
-Write only the questions you've decided to answer. Don't mark the assessment complete unless the user explicitly asks for that — leaving it open signals to the account team that some questions still need human judgment.
+Write only the questions you've decided to answer. Don't mark the assessment complete unless the user explicitly asks for that: leaving it open signals to the account team that some questions still need human judgment.
 
 ### 8. Add internal comments
 
-Default to internal comments — public comments can be client-visible, so only use those if the user asks for them.
+Default to internal comments: public comments can be client-visible, so only use those if the user asks for them.
 
 Internal comment endpoint shape commonly looks like:
 
@@ -163,11 +163,11 @@ Selected <rating> from prior assessment. Current API review found <available dat
 
 Re-read the assessment and confirm: selected-answer count, score (if applicable), per-category answered counts, unanswered questions, internal comment count on answered questions, and that no answer went in without a matching internal comment.
 
-If any write failed, report exactly which question failed and whether it was the selection write or the comment write that broke — that's the difference between "answer is wrong" and "answer is missing an explanation" for whoever picks this up next.
+If any write failed, report exactly which question failed and whether it was the selection write or the comment write that broke: that's the difference between "answer is wrong" and "answer is missing an explanation" for whoever picks this up next.
 
 ## Evidence Mapping Guide
 
-Use these as prompts for where to look, not as a rigid checklist — treat them as a starting point for step 5, and adapt to whatever data this client actually has exposed.
+Use these as prompts for where to look, not as a rigid checklist: treat them as a starting point for step 5, and adapt to whatever data this client actually has exposed.
 
 **Foundation Services**
 - Help Desk & End-User Support: service tickets, SLAs, support contracts, help desk tooling, self-service portal, CSAT, 24x7 coverage.
@@ -218,4 +218,4 @@ When you're done, report back:
 - the major evidence sources you drew on
 - which answers (if any) are weak, prior-only, or worth a human double-check
 
-Don't overstate certainty anywhere in this report — say plainly where the API just didn't expose enough evidence, rather than papering over the gap.
+Don't overstate certainty anywhere in this report: say plainly where the API just didn't expose enough evidence, rather than papering over the gap.
