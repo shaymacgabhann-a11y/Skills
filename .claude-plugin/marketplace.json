@@ -14,7 +14,8 @@
       "source": "./",
       "strict": false,
       "skills": [
-        "./skills/scalepad-assessment-evaluator"
+        "./skills/scalepad-assessment-evaluator",
+        "./skills/lm-microsoft-license-renewals"
       ]
     }
   ]

@@ -7,6 +7,7 @@ Shareable AI skills that automate tasks and workflows in ScalePad Lifecycle Mana
 | Skill | What it does | Writes to Lifecycle Manager? |
 | --- | --- | --- |
 | [scalepad-assessment-evaluator](skills/scalepad-assessment-evaluator/SKILL.md) | Answers Lifecycle Manager assessment questions (for example, the Technology Alignment Assessment) from live ScalePad evidence, and leaves an internal comment explaining every answer. | Yes: selected criteria and internal comments |
+| [lm-microsoft-license-renewals](skills/lm-microsoft-license-renewals/SKILL.md) | Lists a client's Microsoft licenses with seat counts and expiration dates, flags renewals, trials and unassigned seats, and writes a customer-facing renewal summary. | No: read-only |
 
 ## Before you start
 
